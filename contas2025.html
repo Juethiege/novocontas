@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contas para Pagar do Serasa</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chart.js Data Labels Plugin -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F1F3F6;
+        }
+        
+        /* Estilos base para células editáveis */
+        [contenteditable="true"]:hover {
+            background-color: #f0f7ff;
+            outline: 1px dashed #0057FF;
+            cursor: text;
+        }
+        [contenteditable="true"]:focus {
+            background-color: #e6f0ff;
+            outline: 2px solid #0057FF;
+            box-shadow: 0 0 0 3px rgba(0, 87, 255, 0.2);
+        }
+
+        #main-content {
+            background-color: #ffffff;
+            border: 2px solid;
+            border-radius: 0.75rem; /* 12px */
+            padding: 1rem; /* Padding menor para mobile */
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); /* shadow-md */
+            transition: border-color .3s ease-in-out;
+        }
+        
+        @media (min-width: 768px) {
+            #main-content {
+                padding: 1.5rem; /* Padding maior para desktop */
+            }
+        }
+
+
+        .kpi-card {
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .kpi-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        .kpi-card.sorted-asc, .kpi-card.sorted-desc {
+             box-shadow: 0 0 0 2px;
+        }
+
+        /* --- THEME AZUL (THIAGO) --- */
+        .theme-blue #app-title {
+            background-color: #0057FF; /* Azul Serasa */
+        }
+        .theme-blue .tab.active, .theme-blue .status-filter.active {
+            border-color: #0057FF;
+            color: #0057FF;
+        }
+        .theme-blue #main-content {
+            border-color: #0057FF;
+        }
+        .theme-blue .kpi-card-original {
+            background-color: #E6F0FF;
+            color: #0057FF;
+        }
+        .theme-blue .kpi-card.sorted-asc, .theme-blue .kpi-card.sorted-desc {
+            box-shadow: 0 0 0 2px #0057FF;
+        }
+        .theme-blue .kpi-card-original svg {
+            color: #0057FF;
+        }
+
+        /* --- THEME ROSA (GESSIKA) --- */
+        .theme-pink #app-title {
+            background-color: #E63368; /* Rosa */
+        }
+        .theme-pink .tab.active, .theme-pink .status-filter.active {
+            border-color: #E63368;
+            color: #E63368;
+        }
+        .theme-pink #main-content {
+            border-color: #E63368;
+        }
+        .theme-pink .kpi-card-original {
+            background-color: #FFEBF0;
+            color: #E63368;
+        }
+         .theme-pink .kpi-card.sorted-asc, .theme-pink .kpi-card.sorted-desc {
+            box-shadow: 0 0 0 2px #E63368;
+        }
+        .theme-pink .kpi-card-original svg {
+             color: #E63368;
+        }
+        .theme-pink .serasa-text-blue { /* Adapta textos azuis para o rosa */
+            color: #E63368;
+        }
+        .theme-pink .serasa-blue { /* Adapta botões azuis para o rosa */
+            background-color: #E63368;
+        }
+        .theme-pink [contenteditable="true"]:focus {
+            outline-color: #E63368;
+            box-shadow: 0 0 0 3px rgba(230, 51, 104, 0.2);
+        }
+        .theme-pink [contenteditable="true"]:hover {
+            outline-color: #E63368;
+        }
+
+        /* Tabela Responsiva - Card View */
+        @media (max-width: 1280px) { 
+            #debt-table-container table thead, #expired-debt-table-container table thead {
+                display: none; 
+            }
+
+            #debt-table-container table tr, #expired-debt-table-container table tr {
+                display: block;
+                margin-bottom: 1.5rem;
+                border: 1px solid #e2e8f0;
+                border-radius: 0.5rem;
+                padding: 1rem;
+                box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            }
+
+            #debt-table-container table td, #expired-debt-table-container table td {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                text-align: right;
+                border-bottom: 1px dotted #cbd5e1;
+                padding-top: 0.75rem;
+                padding-bottom: 0.75rem;
+            }
+            
+            #debt-table-container table td:last-child, #expired-debt-table-container table td:last-child {
+                border-bottom: none;
+                padding-top: 1rem;
+            }
+
+            #debt-table-container table td::before, #expired-debt-table-container table td::before {
+                content: attr(data-label);
+                text-align: left;
+                font-weight: 600;
+                color: #4a5568;
+            }
+        }
+
+    </style>
+</head>
+<body class="antialiased text-gray-800">
+
+    <div id="app" class="p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 id="app-title" class="text-2xl md:text-4xl font-extrabold text-white uppercase tracking-wider py-3 rounded-lg shadow-lg">Contas para Pagar</h1>
+            <p class="text-gray-500 mt-4">Gerencie suas dívidas de forma fácil e visual.</p>
+        </header>
+
+        <!-- Abas de Navegação -->
+        <div class="mb-6 border-b border-gray-200">
+            <nav class="flex -mb-px space-x-6" aria-label="Tabs">
+                <button id="tab-gessika" class="tab active whitespace-nowrap py-4 px-1 border-b-4 font-medium text-lg">
+                    Gessika
+                </button>
+                <button id="tab-thiago" class="tab whitespace-nowrap py-4 px-1 border-b-4 font-medium text-lg text-gray-500 hover:text-gray-700">
+                    Thiago
+                </button>
+            </nav>
+        </div>
+
+        <!-- Conteúdo Principal -->
+        <main id="main-content">
+            <!-- Conteúdo será injetado pelo JavaScript -->
+        </main>
+    </div>
+
+    <!-- Template para o conteúdo de cada aba -->
+    <template id="tab-content-template">
+        <div>
+            <!-- Resumo Financeiro - KPIs -->
+            <div class="mb-8">
+                 <h2 class="text-xl font-bold mb-4 text-gray-700">Resumo Financeiro (Clique para ordenar)</h2>
+                  <div id="filter-reset-container" class="mb-4 p-3 bg-yellow-100 text-yellow-800 rounded-md" style="display: none;">
+                    <div class="flex justify-between items-center">
+                        <p><strong id="filter-text"></strong></p>
+                        <button id="reset-filter-btn" class="font-semibold hover:underline">Limpar Filtros</button>
+                    </div>
+                </div>
+                 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                    <!-- KPI Card: Valor Original -->
+                    <div id="kpi-original" class="kpi-card kpi-card-original p-5 rounded-xl shadow-lg flex items-start space-x-4">
+                        <div class="bg-white/50 p-3 rounded-full">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01" />
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium opacity-80">Valor Original</p>
+                            <p id="summary-total-original" class="text-2xl font-bold">R$ 0,00</p>
+                        </div>
+                    </div>
+                    <!-- KPI Card: Valor Atual -->
+                    <div id="kpi-atual" class="kpi-card bg-orange-100 text-orange-600 p-5 rounded-xl shadow-lg flex items-start space-x-4">
+                        <div class="bg-white/50 p-3 rounded-full">
+                           <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium opacity-80">Valor Atual</p>
+                            <p id="summary-total-atual" class="text-2xl font-bold">R$ 0,00</p>
+                        </div>
+                    </div>
+                     <!-- KPI Card: Total a Negociar -->
+                    <div id="kpi-avista" class="kpi-card bg-green-100 text-green-600 p-5 rounded-xl shadow-lg flex items-start space-x-4">
+                         <div class="bg-white/50 p-3 rounded-full">
+                           <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium opacity-80">Negociar à Vista</p>
+                            <p id="summary-total-avista" class="text-2xl font-bold">R$ 0,00</p>
+                        </div>
+                    </div>
+                     <!-- KPI Card: Data da Dívida -->
+                    <div id="kpi-data" class="kpi-card bg-purple-100 text-purple-600 p-5 rounded-xl shadow-lg flex items-start space-x-4">
+                         <div class="bg-white/50 p-3 rounded-full">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                         </div>
+                         <div>
+                            <p class="text-sm font-medium opacity-80">Data da Dívida</p>
+                            <p class="text-lg font-bold">Antiga / Recente</p>
+                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dicas para Quitar Dívidas -->
+            <div id="debt-tips-container" class="mb-8">
+                 <!-- Conteúdo das dicas será inserido aqui -->
+            </div>
+
+            <!-- Gráfico de Dívidas -->
+            <div class="mb-8">
+                <h2 class="text-xl font-bold mb-4">Dívidas Ativas por Credor (Valor a Negociar)</h2>
+                <div class="h-80 relative">
+                    <canvas id="debt-chart"></canvas>
+                </div>
+            </div>
+
+            <!-- Quadro Geral de Contas -->
+            <div id="active-debts-section">
+                 <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                    <h2 class="text-xl font-bold">Quadro Geral de Dívidas Ativas</h2>
+                    <div id="status-filters" class="flex items-center border border-gray-200 rounded-lg p-1 space-x-1 self-start">
+                        <!-- Botões de filtro serão inseridos aqui -->
+                    </div>
+                </div>
+                <div class="mb-4 p-3 bg-blue-50 text-blue-700 rounded-md text-sm">
+                    💡 <strong>Dica:</strong> Estas são as dívidas que devem ser sua prioridade. Use os filtros e o plano de ação para quitá-las.
+                </div>
+                <div id="debt-table-container">
+                    <!-- Tabela será inserida aqui -->
+                </div>
+            </div>
+            
+             <!-- Dívidas Caducas -->
+            <div id="expired-debts-section" class="mt-12">
+                <!-- Conteúdo das dívidas caducas será inserido aqui -->
+            </div>
+
+             <!-- Formulário para adicionar nova conta -->
+            <div class="mt-12 pt-6 border-t">
+                <h3 class="text-lg font-semibold mb-3">Adicionar Nova Conta</h3>
+                <form id="add-debt-form" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-end">
+                    <div>
+                        <label for="banco" class="block text-sm font-medium text-gray-700">Banco</label>
+                        <input type="text" id="banco" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                    </div>
+                    <div>
+                        <label for="contrato" class="block text-sm font-medium text-gray-700">Contrato</label>
+                        <input type="text" id="contrato" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                    </div>
+                    <div>
+                        <label for="dataDivida" class="block text-sm font-medium text-gray-700">Data da Dívida</label>
+                        <input type="text" id="dataDivida" placeholder="dd/mm/aaaa" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                    </div>
+                    <div>
+                        <label for="valorOriginal" class="block text-sm font-medium text-gray-700">Valor Original</label>
+                        <input type="number" id="valorOriginal" step="0.01" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                    </div>
+                    <div>
+                        <label for="valorAtual" class="block text-sm font-medium text-gray-700">Valor Atual</label>
+                        <input type="number" id="valorAtual" step="0.01" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                    </div>
+                    <div>
+                        <label for="totalAVista" class="block text-sm font-medium text-gray-700">Total à Vista</label>
+                        <input type="number" id="totalAVista" step="0.01" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                    </div>
+                    <div>
+                        <label for="parcelas3x" class="block text-sm font-medium text-gray-700">Parcelas (3x)</label>
+                        <input type="number" id="parcelas3x" step="0.01" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                    </div>
+                    <div>
+                        <label for="parcelas6x" class="block text-sm font-medium text-gray-700">Parcelas (6x)</label>
+                        <input type="number" id="parcelas6x" step="0.01" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                    </div>
+                     <div>
+                        <label for="dataPagamento" class="block text-sm font-medium text-gray-700">Data de Pagamento</label>
+                        <input type="text" id="dataPagamento" placeholder="dd/mm/aaaa" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                    </div>
+                    <div>
+                        <label for="parcelasRestantes" class="block text-sm font-medium text-gray-700">Parcelas Restantes</label>
+                        <input type="number" id="parcelasRestantes" step="1" value="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                    </div>
+                     <div class="col-span-full text-right">
+                         <button type="submit" class="w-full sm:w-auto mt-4 text-white font-semibold py-2 px-6 rounded-md serasa-blue hover:opacity-90 transition">
+                            Adicionar
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+        </div>
+    </template>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Registrar plugin globalmente
+            Chart.register(ChartDataLabels);
+
+            // Variável global para a instância do gráfico
+            window.myDebtChart = null;
+
+             const gessikaInitialData = [
+                { id: 1, banco: 'ITAÚ', contrato: '820481174-00', dataDivida: '07/11/2022', valorOriginal: 4825.06, valorAtual: 0, totalAVista: 854.80, parcelas3x: 284.93, parcelas6x: 142.47, status: 'A Pagar', dataPagamento: '', parcelasRestantes: 0 },
+                { id: 2, banco: 'ITAÚ', contrato: '20252164420000', dataDivida: '05/04/2025', valorOriginal: 1404.06, valorAtual: 1693.52, totalAVista: 761.24, parcelas3x: 253.75, parcelas6x: 126.87, status: 'A Pagar', dataPagamento: '', parcelasRestantes: 0 },
+                { id: 3, banco: 'IBI (ATIVOS)', contrato: '4026012', dataDivida: '30/04/2010', valorOriginal: 4502.49, valorAtual: 0, totalAVista: 208.57, parcelas3x: 72.68, parcelas6x: 0, status: 'A Pagar', dataPagamento: '', parcelasRestantes: 0 },
+                { id: 4, banco: 'IBI (ATIVOS)', contrato: '4025997', dataDivida: '30/04/2010', valorOriginal: 4585.52, valorAtual: 0, totalAVista: 212.47, parcelas3x: 74.04, parcelas6x: 0, status: 'A Pagar', dataPagamento: '', parcelasRestantes: 0 },
+                { id: 5, banco: 'SANTANDER', contrato: '698100020624', dataDivida: '02/07/2022', valorOriginal: 3723.32, valorAtual: 5642.33, totalAVista: 282.12, parcelas3x: 0, parcelas6x: 0, status: 'A Pagar', dataPagamento: '', parcelasRestantes: 0 },
+                { id: 6, banco: 'SANTANDER (TAVESSIA)', contrato: '', dataDivida: '', valorOriginal: 2954.86, valorAtual: 0, totalAVista: 1329.69, parcelas3x: 499.18, parcelas6x: 269.15, status: 'A Pagar', dataPagamento: '', parcelasRestantes: 0 },
+                { id: 7, banco: 'NUBANK', contrato: '805C82B098B2DEFA', dataDivida: '14/11/2022', valorOriginal: 2388.32, valorAtual: 6380.88, totalAVista: 1414.65, parcelas3x: 689.55, parcelas6x: 278.74, status: 'A Pagar', dataPagamento: '', parcelasRestantes: 0 },
+                { id: 8, banco: 'RENNER', contrato: '21000636999928', dataDivida: '09/02/2025', valorOriginal: 287.80, valorAtual: 496.81, totalAVista: 240.14, parcelas3x: 81.18, parcelas6x: 41.49, status: 'A Pagar', dataPagamento: '', parcelasRestantes: 0 },
+                { id: 9, banco: 'SEM PARAR', contrato: '20231221718-23221590538', dataDivida: '05/01/2024', valorOriginal: 144.12, valorAtual: 182.88, totalAVista: 100.56, parcelas3x: 0, parcelas6x: 0, status: 'A Pagar', dataPagamento: '', parcelasRestantes: 0 },
+                { id: 10, banco: 'SENF', contrato: '47593790', dataDivida: '25/10/2008', valorOriginal: 157.94, valorAtual: 818.54, totalAVista: 16.98, parcelas3x: 0, parcelas6x: 0, status: 'A Pagar', dataPagamento: '', parcelasRestantes: 0 },
+                { id: 11, banco: 'SENF', contrato: '47593792', dataDivida: '25/11/2008', valorOriginal: 159.57, valorAtual: 820.23, totalAVista: 17.11, parcelas3x: 0, parcelas6x: 0, status: 'A Pagar', dataPagamento: '', parcelasRestantes: 0 }
+            ];
+            
+            const thiagoInitialData = [
+                { id: 12, banco: 'ITAU', contrato: '2512977490000', dataDivida: '01/11/2022', valorOriginal: 3973.91, valorAtual: 13848.16, totalAVista: 468.07, parcelas3x: 156.02, parcelas6x: 78.01, status: 'A Pagar', dataPagamento: '', parcelasRestantes: 0 },
+                { id: 13, banco: 'ITAU', contrato: '2712950040000', dataDivida: '01/11/2022', valorOriginal: 5549.47, valorAtual: 19332.41, totalAVista: 663.11, parcelas3x: 221.04, parcelas6x: 110.52, status: 'A Pagar', dataPagamento: '', parcelasRestantes: 0 },
+                { id: 14, banco: 'ITAU', contrato: '653236646-00', dataDivida: '27/10/2022', valorOriginal: 5201.70, valorAtual: 0, totalAVista: 1165.44, parcelas3x: 388.48, parcelas6x: 194.24, status: 'A Pagar', dataPagamento: '', parcelasRestantes: 0 },
+                { id: 15, banco: 'ITAU', contrato: '504484213-00', dataDivida: '27/10/2022', valorOriginal: 3519.19, valorAtual: 0, totalAVista: 281.43, parcelas3x: 93.81, parcelas6x: 46.90, status: 'A Pagar', dataPagamento: '', parcelasRestantes: 0 },
+                { id: 16, banco: 'ITAU', contrato: '665711164-00', dataDivida: '27/10/2022', valorOriginal: 1999.41, valorAtual: 0, totalAVista: 169.92, parcelas3x: 0, parcelas6x: 0, status: 'A Pagar', dataPagamento: '', parcelasRestantes: 0 },
+                { id: 17, banco: 'ITAU', contrato: '813943306-00', dataDivida: '27/10/2022', valorOriginal: 5636.89, valorAtual: 0, totalAVista: 479.07, parcelas3x: 159.69, parcelas6x: 79.85, status: 'A Pagar', dataPagamento: '', parcelasRestantes: 0 },
+                { id: 18, banco: 'CARTÃO BV (ATIVOS)', contrato: '2000984982', dataDivida: '12/06/2016', valorOriginal: 39142.80, valorAtual: 0, totalAVista: 3656.64, parcelas3x: 1274.28, parcelas6x: 637.14, status: 'A Pagar', dataPagamento: '', parcelasRestantes: 0 },
+                { id: 19, banco: '(ATIVOS)', contrato: '5050558', dataDivida: '28/02/2005', valorOriginal: 0, valorAtual: 29.89, totalAVista: 5.50, parcelas3x: 0, parcelas6x: 0, status: 'A Pagar', dataPagamento: '', parcelasRestantes: 0 },
+                { id: 20, banco: 'CARREFOUR', contrato: '67008358755', dataDivida: '03/08/2024', valorOriginal: 1553.42, valorAtual: 0, totalAVista: 1334.75, parcelas3x: 647.66, parcelas6x: 327.62, status: 'A Pagar', dataPagamento: '', parcelasRestantes: 0 },
+                { id: 21, banco: 'VIVO (CNPJ)', contrato: '899925820931', dataDivida: '15/11/2024', valorOriginal: 263.19, valorAtual: 0, totalAVista: 185.19, parcelas3x: 0, parcelas6x: 0, status: 'A Pagar', dataPagamento: '', parcelasRestantes: 0 },
+                { id: 22, banco: 'NUBANK', contrato: '85B31BB1F12935C1', dataDivida: '05/08/2024', valorOriginal: 2866.77, valorAtual: 0, totalAVista: 1667.61, parcelas3x: 938.80, parcelas6x: 0, status: 'A Pagar', dataPagamento: '', parcelasRestantes: 0 },
+                { id: 23, banco: 'RIACHUELO', contrato: '102391701352', dataDivida: '03/08/2024', valorOriginal: 166.76, valorAtual: 352.18, totalAVista: 108.42, parcelas3x: 0, parcelas6x: 0, status: 'A Pagar', dataPagamento: '', parcelasRestantes: 0 },
+                { id: 24, banco: 'SEM PARAR', contrato: '1103215665-1103215665', dataDivida: '03/07/2023', valorOriginal: 401.18, valorAtual: 544.82, totalAVista: 228.84, parcelas3x: 0, parcelas6x: 0, status: 'A Pagar', dataPagamento: '', parcelasRestantes: 0 }
+            ];
+
+            const state = {
+                activeTab: 'gessika',
+                filterCreditor: null,
+                filterStatus: 'Todos',
+                filterActionPlanId: null,
+                sortConfig: { key: null, direction: 'asc' },
+                data: {
+                    gessika: { debts: [] },
+                    thiago: { debts: [] }
+                }
+            };
+            
+            const appContainer = document.getElementById('app');
+            const mainContent = document.getElementById('main-content');
+
+            function loadState() {
+                const savedState = localStorage.getItem('serasaApp');
+                if (savedState) {
+                    const parsedState = JSON.parse(savedState);
+                    // Merge saved state with defaults to prevent errors if structure changes
+                    Object.assign(state, { ...parsedState, sortConfig: parsedState.sortConfig || { key: null, direction: 'asc' } });
+                    return true;
+                }
+                return false;
+            }
+
+            function saveState() {
+                localStorage.setItem('serasaApp', JSON.stringify(state));
+            }
+
+            const formatCurrency = (value) => {
+                if(isNaN(value) || value === null) return "R$ 0,00";
+                return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+            };
+            
+            const parseCurrency = (str) => {
+                 if (typeof str !== 'string') return 0;
+                let numberStr = str.replace(/[^0-9,.]/g, '');
+                const lastComma = numberStr.lastIndexOf(',');
+                const lastDot = numberStr.lastIndexOf('.');
+                if (lastComma > lastDot) {
+                    numberStr = numberStr.replace(/\./g, '').replace(',', '.');
+                } else if (lastDot > lastComma) {
+                    numberStr = numberStr.replace(/,/g, '');
+                } else {
+                     numberStr = numberStr.replace(',', '.');
+                }
+                return parseFloat(numberStr) || 0;
+            };
+
+            function parseDateBR(dateStr) {
+                if (typeof dateStr !== 'string' || !/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr.trim())) {
+                    return null; 
+                }
+                const parts = dateStr.split('/');
+                const day = parseInt(parts[0], 10);
+                const month = parseInt(parts[1], 10) - 1; // Mês no JS é base 0
+                const year = parseInt(parts[2], 10);
+                if (year < 1000 || month < 0 || month > 11 || day < 1 || day > 31) {
+                    return null;
+                }
+                return new Date(year, month, day);
+            }
+
+            function isDebtExpired(dateStr) {
+                const debtDate = parseDateBR(dateStr);
+                if (!debtDate) return false;
+
+                // Data de referência: 28 de Setembro de 2025
+                const today = new Date(2025, 8, 28); // Mês 8 é Setembro
+                const fiveYearsAgo = new Date(today);
+                fiveYearsAgo.setFullYear(today.getFullYear() - 5);
+                
+                return debtDate < fiveYearsAgo;
+            }
+
+            function applyTheme(theme) {
+                 appContainer.classList.remove('theme-blue', 'theme-pink');
+                 if (theme === 'gessika') {
+                     appContainer.classList.add('theme-pink');
+                 } else {
+                     appContainer.classList.add('theme-blue');
+                 }
+            }
+
+            function render() {
+                const currentUser = state.activeTab;
+                const allDebts = state.data[currentUser].debts;
+                
+                const activeDebts = allDebts.filter(d => !isDebtExpired(d.dataDivida));
+                const expiredDebts = allDebts.filter(d => isDebtExpired(d.dataDivida));
+
+                applyTheme(currentUser);
+
+                // --- Filtering and Sorting ---
+                const debtsForSummary = state.filterCreditor
+                    ? activeDebts.filter(d => d.banco === state.filterCreditor)
+                    : activeDebts;
+
+                let processedDebts = [...activeDebts];
+
+                if (state.filterActionPlanId) {
+                    processedDebts = activeDebts.filter(d => d.id === state.filterActionPlanId);
+                } else {
+                    if (state.filterCreditor) {
+                        processedDebts = processedDebts.filter(d => d.banco === state.filterCreditor);
+                    }
+                    if (state.filterStatus !== 'Todos') {
+                        processedDebts = processedDebts.filter(d => d.status === state.filterStatus);
+                    }
+                }
+
+                const debtsForTable = [...processedDebts];
+                const debtsForTips = [...processedDebts];
+                
+                if (state.sortConfig.key) {
+                    const { key, direction } = state.sortConfig;
+                    debtsForTable.sort((a, b) => {
+                         if (key === 'dataDivida') {
+                            const dateA = parseDateBR(a.dataDivida);
+                            const dateB = parseDateBR(b.dataDivida);
+                            if (dateA < dateB) return direction === 'asc' ? -1 : 1;
+                            if (dateA > dateB) return direction === 'asc' ? 1 : -1;
+                            return 0;
+                        }
+                        const valA = a[key] || 0;
+                        const valB = b[key] || 0;
+                        if (valA < valB) return direction === 'asc' ? -1 : 1;
+                        if (valA > valB) return direction === 'asc' ? 1 : -1;
+                        return 0;
+                    });
+                }
+                // --- End Filtering and Sorting ---
+
+                const template = document.getElementById('tab-content-template').content.cloneNode(true);
+                mainContent.innerHTML = '';
+                mainContent.appendChild(template);
+
+                const resetContainer = document.getElementById('filter-reset-container');
+                if(state.filterCreditor || state.filterStatus !== 'Todos' || state.filterActionPlanId) {
+                    let filterTextContent = [];
+                    if(state.filterCreditor) filterTextContent.push(`Credor: ${state.filterCreditor}`);
+                    if(state.filterStatus !== 'Todos') filterTextContent.push(`Status: ${state.filterStatus}`);
+                    if (state.filterActionPlanId) {
+                        const debt = allDebts.find(d => d.id === state.filterActionPlanId);
+                        if (debt) filterTextContent.push(`Plano: ${debt.banco}`);
+                    }
+
+                    resetContainer.style.display = 'block';
+                    document.getElementById('filter-text').textContent = `Filtrando por: ${filterTextContent.join('; ')}`;
+                } else {
+                    resetContainer.style.display = 'none';
+                }
+
+                document.getElementById('tab-gessika').classList.toggle('active', currentUser === 'gessika');
+                document.getElementById('tab-gessika').classList.toggle('text-gray-500', currentUser !== 'gessika');
+                document.getElementById('tab-thiago').classList.toggle('active', currentUser === 'thiago');
+                document.getElementById('tab-thiago').classList.toggle('text-gray-500', currentUser !== 'thiago');
+
+                renderSummary(debtsForSummary);
+                renderChart(activeDebts); 
+                renderStatusFilters();
+                renderTable(debtsForTable, 'debt-table-container');
+                renderDebtTips(debtsForTips);
+                renderExpiredDebts(expiredDebts);
+                setupEventListeners();
+            }
+
+            function renderTable(debts, containerId) {
+                const container = document.getElementById(containerId);
+                if(!container) return;
+
+                if(!debts || debts.length === 0) {
+                    container.innerHTML = `<p class="text-center text-gray-500 py-4">Nenhuma conta encontrada.</p>`;
+                    return;
+                }
+
+                const table = document.createElement('table');
+                table.className = 'min-w-full divide-y divide-gray-200';
+                table.innerHTML = `
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Banco</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contrato</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data da Dívida</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor Original</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor Atual</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total a Negociar a Vista</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Parcelas (3x)</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Parcelas (6x)</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data de Pagamento</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Parcelas Restantes</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        ${debts.map(debt => `
+                            <tr id="debt-${debt.id}" data-id="${debt.id}">
+                                <td data-label="Status">
+                                    <select data-id="${debt.id}" class="status-select rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 w-full">
+                                        <option value="A Pagar" ${debt.status === 'A Pagar' ? 'selected' : ''}>A Pagar</option>
+                                        <option value="Parcelado" ${debt.status === 'Parcelado' ? 'selected' : ''}>Parcelado</option>
+                                        <option value="Pago" ${debt.status === 'Pago' ? 'selected' : ''}>Pago</option>
+                                    </select>
+                                </td>
+                                <td data-label="Banco" contenteditable="true" data-field="banco">${debt.banco}</td>
+                                <td data-label="Contrato" contenteditable="true" data-field="contrato">${debt.contrato}</td>
+                                <td data-label="Data da Dívida" contenteditable="true" data-field="dataDivida">${debt.dataDivida}</td>
+                                <td data-label="Valor Original" contenteditable="true" data-field="valorOriginal">${formatCurrency(debt.valorOriginal)}</td>
+                                <td data-label="Valor Atual" contenteditable="true" data-field="valorAtual">${formatCurrency(debt.valorAtual)}</td>
+                                <td data-label="Total à Vista" contenteditable="true" data-field="totalAVista">${formatCurrency(debt.totalAVista)}</td>
+                                <td data-label="Parcelas (3x)" contenteditable="true" data-field="parcelas3x">${formatCurrency(debt.parcelas3x)}</td>
+                                <td data-label="Parcelas (6x)" contenteditable="true" data-field="parcelas6x">${formatCurrency(debt.parcelas6x)}</td>
+                                <td data-label="Data de Pagamento" contenteditable="true" data-field="dataPagamento">${debt.dataPagamento || ''}</td>
+                                <td data-label="Parcelas Restantes" contenteditable="true" data-field="parcelasRestantes">${debt.parcelasRestantes || 0}</td>
+                                <td data-label="Ações">
+                                    <button data-id="${debt.id}" class="delete-btn text-red-600 hover:underline w-full text-center">Excluir</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                `;
+                container.innerHTML = '';
+                container.appendChild(table);
+            }
+
+            function renderSummary(debts) {
+                if(!debts) return;
+                const totalOriginal = debts.reduce((sum, d) => sum + (d.valorOriginal || 0), 0);
+                const totalAtual = debts.reduce((sum, d) => sum + (d.valorAtual || 0), 0);
+                const totalAVista = debts.reduce((sum, d) => sum + (d.totalAVista || 0), 0);
+
+                document.getElementById('summary-total-original').textContent = formatCurrency(totalOriginal);
+                document.getElementById('summary-total-atual').textContent = formatCurrency(totalAtual);
+                document.getElementById('summary-total-avista').textContent = formatCurrency(totalAVista);
+                
+                ['kpi-original', 'kpi-atual', 'kpi-avista', 'kpi-data'].forEach(id => {
+                    const el = document.getElementById(id);
+                    el.classList.remove('sorted-asc', 'sorted-desc');
+                });
+                
+                if (state.sortConfig.key) {
+                    const keyMap = { 'valorOriginal': 'kpi-original', 'valorAtual': 'kpi-atual', 'totalAVista': 'kpi-avista', 'dataDivida': 'kpi-data' };
+                    const kpiId = keyMap[state.sortConfig.key];
+                    if (kpiId) {
+                         const kpiEl = document.getElementById(kpiId);
+                         kpiEl.classList.add(state.sortConfig.direction === 'asc' ? 'sorted-asc' : 'sorted-desc');
+                    }
+                }
+            }
+             
+            function renderStatusFilters() {
+                const container = document.getElementById('status-filters');
+                const statuses = ['Todos', 'A Pagar', 'Parcelado', 'Pago'];
+                let buttonsHtml = '';
+                statuses.forEach(status => {
+                    const isActive = state.filterStatus === status;
+                    buttonsHtml += `<button data-status="${status}" class="status-filter text-sm font-semibold px-3 py-1 rounded-md transition ${isActive ? 'active bg-gray-200 text-gray-800' : 'text-gray-500 hover:bg-gray-100'}">${status}</button>`;
+                });
+                container.innerHTML = buttonsHtml;
+            }
+
+            function renderChart(debts) {
+                const ctx = document.getElementById('debt-chart')?.getContext('2d');
+                if (!ctx || !debts) return;
+
+                if (window.myDebtChart) {
+                    window.myDebtChart.destroy();
+                }
+
+                const debtsByBank = debts.reduce((acc, debt) => {
+                    const bank = debt.banco || 'Sem Nome';
+                    if (!acc[bank]) {
+                        acc[bank] = 0;
+                    }
+                    acc[bank] += debt.totalAVista || 0;
+                    return acc;
+                }, {});
+
+                const labels = Object.keys(debtsByBank);
+                const data = Object.values(debtsByBank);
+                
+                const themeColor = state.activeTab === 'gessika' ? '#E63368' : '#0057FF';
+
+                window.myDebtChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Total a Negociar',
+                            data: data,
+                            backgroundColor: `${themeColor}B3`, 
+                            borderColor: themeColor,
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: { duration: 0 },
+                        onClick: (event, elements) => {
+                            if (elements.length > 0) {
+                                const index = elements[0].index;
+                                const label = window.myDebtChart.data.labels[index];
+                                state.filterCreditor = label;
+                                state.filterActionPlanId = null;
+                                saveAndRerender();
+                            }
+                        },
+                        scales: { y: { beginAtZero: true, ticks: { callback: (value) => formatCurrency(value) } } },
+                        plugins: {
+                            datalabels: { anchor: 'end', align: 'top', formatter: (value) => formatCurrency(value), color: '#374151', font: { weight: 'bold' } },
+                            legend: { display: false },
+                            tooltip: { callbacks: { label: (context) => formatCurrency(context.raw) } }
+                        }
+                    }
+                });
+            }
+
+            function getBestPaymentOption(debt) {
+                const aVistaTotal = debt.totalAVista > 0 ? debt.totalAVista : Infinity;
+                const p3xTotal = debt.parcelas3x > 0 ? debt.parcelas3x * 3 : Infinity;
+                const p6xTotal = debt.parcelas6x > 0 ? debt.parcelas6x * 6 : Infinity;
+
+                const options = [
+                    { type: 'à vista', total: aVistaTotal, text: `pagando ${formatCurrency(debt.totalAVista)} à vista.` },
+                    { type: '3x', total: p3xTotal, text: `em 3x de ${formatCurrency(debt.parcelas3x)}, totalizando ${formatCurrency(p3xTotal)}.` },
+                    { type: '6x', total: p6xTotal, text: `em 6x de ${formatCurrency(debt.parcelas6x)}, totalizando ${formatCurrency(p6xTotal)}.` }
+                ];
+
+                return options.sort((a, b) => a.total - b.total)[0];
+            }
+
+             function renderDebtTips(debts) {
+                const container = document.getElementById('debt-tips-container');
+                if (!container) return;
+
+                const debtsWithBestOptions = debts
+                    .filter(d => d.status !== 'Pago')
+                    .map(debt => ({ debt, bestOption: getBestPaymentOption(debt) }))
+                    .filter(item => item.bestOption.total !== Infinity)
+                    .sort((a, b) => a.bestOption.total - b.bestOption.total);
+
+                let tipsHtml = `<h2 class="text-xl font-bold mb-4">Seu Plano de Ação para Quitar as Dívidas</h2>`;
+
+                if (debtsWithBestOptions.length > 0) {
+                    tipsHtml += `<p class="mb-6 text-gray-600">Siga o método <strong>"Bola de Neve"</strong>: foque na dívida com o menor valor de quitação. Pagar a primeira da lista rapidamente te dará motivação para as próximas!</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">`;
+
+                    debtsWithBestOptions.forEach(({ debt, bestOption }, index) => {
+                        tipsHtml += `
+                            <div data-id="${debt.id}" class="action-plan-card flex flex-col p-5 rounded-xl shadow-md cursor-pointer transition hover:shadow-lg hover:-translate-y-1 ${index === 0 ? 'bg-green-50 border-t-4 border-green-500' : 'bg-white border-t-4 border-gray-200'}">
+                                <div class="flex items-baseline gap-2">
+                                    <span class="text-2xl font-bold ${index === 0 ? 'text-green-700' : 'text-gray-600'}">${index + 1}.</span>
+                                    <h3 class="font-semibold text-lg text-gray-800">${debt.banco}</h3>
+                                </div>
+                                 <div class="text-sm text-gray-700 mt-2 flex-grow">
+                                    <strong>Melhor opção:</strong> Quitar ${bestOption.text}
+                                 </div>
+                                 ${index === 0 ? '<span class="text-xs font-bold text-green-800 bg-green-200 px-3 py-1 rounded-full self-start mt-4">(Comece por aqui!)</span>' : ''}
+                            </div>`;
+                    });
+                    tipsHtml += `</div>`;
+                } else {
+                     tipsHtml += `<p class="text-center p-4 bg-green-100 text-green-800 rounded-lg">Parabéns! Nenhuma dívida ativa com opção de negociação encontrada!</p>`;
+                }
+
+                 tipsHtml += `<div class="mt-10 p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <h3 class="text-lg font-semibold mb-4 text-yellow-900">Dicas Estratégicas para se Livrar das Dívidas:</h3>
+                    <ul class="list-disc list-inside space-y-3 text-yellow-800">
+                        <li><strong>Faça um Orçamento Detalhado:</strong> Saiba exatamente para onde seu dinheiro está indo. Use uma planilha ou app para controlar todas as suas receitas e despesas.</li>
+                        <li><strong>Negocie com os Credores:</strong> Sempre tente negociar. Muitas empresas preferem receber um valor menor à vista do que não receber nada. Use o valor "Total a Negociar" como ponto de partida.</li>
+                        <li><strong>Busque Renda Extra:</strong> Considere trabalhos freelancer, vender itens que não usa mais ou transformar um hobby em fonte de renda. Todo valor extra acelera a quitação.</li>
+                        <li><strong>Evite Novas Dívidas:</strong> Durante o processo, evite usar o cartão de crédito ou fazer novos financiamentos. O foco é eliminar, não acumular.</li>
+                        <li><strong>Construa uma Reserva de Emergência:</strong> Assim que quitar a primeira dívida, use parte do dinheiro para começar uma reserva. Ter um fundo para imprevistos evita que você precise se endividar novamente.</li>
+                    </ul>
+                 </div>`;
+
+                container.innerHTML = tipsHtml;
+            }
+
+            function renderExpiredDebts(debts) {
+                const container = document.getElementById('expired-debts-section');
+                if (!container || debts.length === 0) return;
+
+                let html = `<h2 class="text-xl font-bold mb-4">Dívidas Caducas (Prescritas)</h2>
+                <div class="mb-4 p-4 bg-gray-100 text-gray-700 rounded-lg text-sm">
+                    <p><strong>Atenção:</strong> As dívidas abaixo têm mais de 5 anos e, por lei, <strong>não podem mais negativar seu nome no Serasa/SPC</strong>. Você não é legalmente obrigado a pagá-las, mas os credores ainda podem fazer cobranças informais. Caso queira negociar, as ofertas costumam ser muito baixas (ex: 90% de desconto).</p>
+                </div>
+                <div id="expired-debt-table-container">`;
+
+                const table = document.createElement('table');
+                table.className = 'min-w-full divide-y divide-gray-200';
+                table.innerHTML = `
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Banco</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data da Dívida</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor Original</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        ${debts.map(debt => `
+                            <tr>
+                                <td data-label="Banco">${debt.banco}</td>
+                                <td data-label="Data da Dívida">${debt.dataDivida}</td>
+                                <td data-label="Valor Original">${formatCurrency(debt.valorOriginal)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>`;
+
+                html += table.outerHTML + `</div>`;
+                container.innerHTML = html;
+            }
+
+
+            function handleAddDebt(e) {
+                e.preventDefault();
+                const form = e.target;
+                const newDebt = {
+                    id: Date.now(),
+                    banco: form.banco.value.trim(),
+                    contrato: form.contrato.value.trim(),
+                    dataDivida: form.dataDivida.value.trim(),
+                    valorOriginal: parseFloat(form.valorOriginal.value) || 0,
+                    valorAtual: parseFloat(form.valorAtual.value) || 0,
+                    totalAVista: parseFloat(form.totalAVista.value) || 0,
+                    parcelas3x: parseFloat(form.parcelas3x.value) || 0,
+                    parcelas6x: parseFloat(form.parcelas6x.value) || 0,
+                    status: 'A Pagar',
+                    dataPagamento: form.dataPagamento.value.trim(),
+                    parcelasRestantes: parseInt(form.parcelasRestantes.value, 10) || 0
+                };
+                state.data[state.activeTab].debts.push(newDebt);
+                form.reset();
+                saveAndRerender();
+            }
+
+            function handleDeleteDebt(id) {
+                const debts = state.data[state.activeTab].debts;
+                state.data[state.activeTab].debts = debts.filter(d => d.id !== id);
+                saveAndRerender();
+            }
+
+            function handleStatusChange(id, newStatus) {
+                const debt = state.data[state.activeTab].debts.find(d => d.id === id);
+                if (debt && debt.status !== newStatus) {
+                    debt.status = newStatus;
+                    saveAndRerender();
+                }
+            }
+            
+            function handleCellEdit(cell) {
+                const row = cell.closest('tr');
+                if (!row) return;
+
+                const id = Number(row.dataset.id);
+                const field = cell.dataset.field;
+                let value = cell.textContent.trim();
+                const debt = state.data[state.activeTab].debts.find(d => d.id === id);
+                if (!debt) return;
+                
+                let needsUpdate = false;
+                const moneyFields = ['valorOriginal', 'valorAtual', 'totalAVista', 'parcelas3x', 'parcelas6x'];
+                const integerFields = ['parcelasRestantes'];
+                
+                if (moneyFields.includes(field)) {
+                    const numericValue = parseCurrency(value);
+                    if (debt[field] !== numericValue) debt[field] = numericValue; needsUpdate = true;
+                } else if (integerFields.includes(field)) {
+                    const intValue = parseInt(value, 10) || 0;
+                     if (debt[field] !== intValue) debt[field] = intValue; needsUpdate = true;
+                }
+                else {
+                    if (debt[field] !== value) debt[field] = value; needsUpdate = true;
+                }
+                
+                if (needsUpdate) setTimeout(saveAndRerender, 0);
+            }
+            
+            function saveAndRerender() {
+                saveState();
+                render();
+            }
+
+            function setupEventListeners() {
+                document.getElementById('tab-gessika').addEventListener('click', () => { state.activeTab = 'gessika'; state.filterCreditor = null; saveAndRerender(); });
+                document.getElementById('tab-thiago').addEventListener('click', () => { state.activeTab = 'thiago'; state.filterCreditor = null; saveAndRerender(); });
+                document.getElementById('add-debt-form').addEventListener('submit', handleAddDebt);
+                
+                const tableContainer = document.getElementById('debt-table-container');
+                tableContainer.addEventListener('click', (e) => { if (e.target.classList.contains('delete-btn')) handleDeleteDebt(Number(e.target.dataset.id)); });
+                tableContainer.addEventListener('change', (e) => { if (e.target.classList.contains('status-select')) handleStatusChange(Number(e.target.dataset.id), e.target.value); });
+                tableContainer.addEventListener('blur', (e) => { if (e.target.hasAttribute('contenteditable')) handleCellEdit(e.target); }, true);
+
+                const resetBtn = document.getElementById('reset-filter-btn');
+                if (resetBtn) resetBtn.addEventListener('click', () => { state.filterCreditor = null; state.filterStatus = 'Todos'; state.filterActionPlanId = null; saveAndRerender(); });
+                
+                const statusFilters = document.getElementById('status-filters');
+                statusFilters.addEventListener('click', (e) => { if (e.target.classList.contains('status-filter')) { state.filterStatus = e.target.dataset.status; state.filterActionPlanId = null; saveAndRerender(); } });
+
+                document.getElementById('kpi-original').addEventListener('click', () => handleKpiClick('valorOriginal'));
+                document.getElementById('kpi-atual').addEventListener('click', () => handleKpiClick('valorAtual'));
+                document.getElementById('kpi-avista').addEventListener('click', () => handleKpiClick('totalAVista'));
+                document.getElementById('kpi-data').addEventListener('click', () => handleKpiClick('dataDivida'));
+
+                const debtTipsContainer = document.getElementById('debt-tips-container');
+                if (debtTipsContainer) {
+                    debtTipsContainer.addEventListener('click', (e) => {
+                        const card = e.target.closest('.action-plan-card');
+                        if (card) { state.filterActionPlanId = Number(card.dataset.id); state.filterCreditor = null; state.filterStatus = 'Todos'; state.sortConfig.key = null; saveAndRerender(); }
+                    });
+                }
+            }
+
+            function handleKpiClick(sortKey) {
+                if (state.sortConfig.key === sortKey) {
+                    state.sortConfig.direction = state.sortConfig.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    state.sortConfig.key = sortKey;
+                    state.sortConfig.direction = 'asc';
+                }
+                saveAndRerender();
+            }
+            
+            function loadInitialHardcodedData() {
+                state.data.gessika.debts = gessikaInitialData;
+                state.data.thiago.debts = thiagoInitialData;
+                saveAndRerender();
+            }
+
+            const initialLoad = () => {
+                if (!loadState() || (state.data.gessika.debts.length === 0 && state.data.thiago.debts.length === 0) ) {
+                    loadInitialHardcodedData();
+                } else {
+                    render();
+                }
+            };
+            initialLoad();
+        });
+    </script>
+
+</body>
+</html>
